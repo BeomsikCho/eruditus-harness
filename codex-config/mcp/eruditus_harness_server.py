@@ -86,6 +86,11 @@ class EmbeddingBackend:
     def __init__(self, requested: str = "auto", model: str | None = None) -> None:
         self.requested = requested
         self.model_name = model or os.environ.get("ERUDITUS_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+        self.local_files_only = os.environ.get("ERUDITUS_EMBEDDING_LOCAL_FILES_ONLY", "1").lower() not in {
+            "0",
+            "false",
+            "no",
+        }
         self.kind = "hash"
         self.dimension = DEFAULT_HASH_VECTOR_DIMS
         self._model: Any | None = None
@@ -93,8 +98,21 @@ class EmbeddingBackend:
         if requested in {"auto", "sentence-transformers"} and importlib.util.find_spec("sentence_transformers"):
             from sentence_transformers import SentenceTransformer
 
-            self._model = SentenceTransformer(self.model_name)
-            self.dimension = int(self._model.get_sentence_embedding_dimension())
+            try:
+                self._model = SentenceTransformer(self.model_name, local_files_only=self.local_files_only)
+            except Exception as exc:
+                if requested == "auto":
+                    self.kind = "hash"
+                    return
+                raise RuntimeError(
+                    f"failed to load sentence-transformers model {self.model_name!r}; "
+                    "set ERUDITUS_EMBEDDING_LOCAL_FILES_ONLY=0 once to allow download, "
+                    "or use --embedding-backend hash"
+                ) from exc
+            if hasattr(self._model, "get_embedding_dimension"):
+                self.dimension = int(self._model.get_embedding_dimension())
+            else:
+                self.dimension = int(self._model.get_sentence_embedding_dimension())
             self.kind = "sentence-transformers"
         elif requested == "sentence-transformers":
             raise RuntimeError("sentence-transformers is not installed")
@@ -334,6 +352,7 @@ class HarnessStore:
         )
         self.index_errors: list[dict[str, str]] = []
         self._init_db()
+        self._sync_indexes_for_embedding()
         self._write_manifest()
 
     def _connect(self) -> sqlite3.Connection:
@@ -485,11 +504,34 @@ class HarnessStore:
             "index_errors": self.index_errors,
             "metadata": str(self.db_path),
         }
-        self.manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        try:
+            self.manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            # Search should still work in read-only contexts. Index save operations fail
+            # separately before this point, so this only downgrades diagnostic metadata writes.
+            pass
 
     def _record_index_error(self, operation: str, exc: Exception) -> None:
         self.index_errors.append({"operation": operation, "error": str(exc)})
         self._write_manifest()
+
+    def _manifest_embedding(self) -> str | None:
+        if not self.manifest_path.exists():
+            return None
+        try:
+            manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        embedding = manifest.get("embedding")
+        return embedding if isinstance(embedding, str) else None
+
+    def _sync_indexes_for_embedding(self) -> None:
+        previous_embedding = self._manifest_embedding()
+        current_embedding = self.embedding.fingerprint()
+        if previous_embedding is None or previous_embedding == current_embedding:
+            return
+        self._rebuild_vector_index()
+        self._rebuild_memory_vector_index()
 
     def memory_add(self, title: str, body: str, tags: list[str] | None = None) -> dict[str, Any]:
         today = dt.datetime.now().strftime("%Y%m%d")

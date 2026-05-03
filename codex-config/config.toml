@@ -1,0 +1,17 @@
+[mcp_servers.eruditus-harness]
+command = "/home/bscho/works/eruditus-harness/.venv/bin/python"
+args = [
+  "/home/bscho/works/eruditus-harness/codex-config/mcp/eruditus_harness_server.py",
+  "--codex-home",
+  "/home/bscho/works/eruditus-harness/.codex",
+  "--embedding-backend",
+  "sentence-transformers",
+  "--vector-backend",
+  "python",
+  "serve"
+]
+
+[mcp_servers.eruditus-harness.env]
+HF_HUB_OFFLINE = "1"
+TRANSFORMERS_OFFLINE = "1"
+ERUDITUS_EMBEDDING_LOCAL_FILES_ONLY = "1"
