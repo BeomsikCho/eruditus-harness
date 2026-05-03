@@ -1,0 +1,22 @@
+prefix_rule(pattern=["uv", "run"], decision="allow")
+
+# git 명령어
+prefix_rule(pattern=["git", "commit"], decision="prompt")           # origin에 올리지만 않으면, 수정 가능하니까 남겨둠
+prefix_rule(pattern=["git", "push"], decision="forbidden", justification="origin에 영향을 줌")
+prefix_rule(pattern=["git", "rebase"], decision="forbidden", justification="rebase는 기존 commit을 수정하면서 bracnh를 합치므로 비가역적임")
+prefix_rule(pattern=["git", "merge"], decision="prompt")            
+prefix_rule(pattern=["git", "reset"], decision="forbidden", justification="reset은 기존 commit을 없애버리므로, 비가역적임")
+prefix_rule(pattern=["git", "clean"], decision="forbidden", justification="clean은 logging을 지워버리므로, 비가역적임")
+prefix_rule(pattern=["git", "checkout"], decision="prompt")
+prefix_rule(pattern=["git", "switch"], decision="prompt")
+
+# 위험 명령어들
+prefix_rule(pattern=["sudo"], decision="prompt", justification="과도한 변경일 가능성이 높지만, 설치/설정 과정에서 빈번히 필요로하므로, prompt")
+prefix_rule(pattern=["rm"], decision="prompt", justification="비가역적인 행동이긴 하지만, 필요한 순간이 빈번히 있으므로, prompt")
+
+# 패키지/환경 오염
+prefix_rule(pattern=["uv", "add"], decision="prompt")
+prefix_rule(pattern=["uv", "remove"], decision="prompt")
+prefix_rule(pattern=["pip", "install"], decision="prompt")
+prefix_rule(pattern=["apt"], decision="prompt")
+prefix_rule(pattern=["conda"], decision="prompt")

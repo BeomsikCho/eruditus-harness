@@ -1,0 +1,48 @@
+[project]
+name = "eruditus-harness"
+version = "0.1.0"
+description = "Codex configuration harness with local memory and reference-document RAG tools."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Eruditus Harness maintainers" }
+]
+dependencies = [
+    "sentence-transformers>=5.4.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.8.0"
+]
+faiss = [
+  "faiss-cpu>=1.8.0",
+  "numpy>=1.26.0"
+]
+local-embedding = [
+  "sentence-transformers>=3.0.0"
+]
+perf = [
+  "faiss-cpu>=1.8.0",
+  "numpy>=1.26.0",
+  "sentence-transformers>=3.0.0"
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.eruditus-harness]
+codex-config-dir = "codex-config"
+default-codex-home = ".codex"
+mcp-server = "codex-config/mcp/eruditus_harness_server.py"
+memory-dir = ".codex/memory"
+rag-metadata = ".codex/rag/metadata.sqlite3"
+rag-faiss-index = ".codex/rag/index.faiss"
+rag-python-index = ".codex/rag/index.pkl"
+memory-faiss-index = ".codex/rag/memory_index.faiss"
+memory-python-index = ".codex/rag/memory_index.pkl"
